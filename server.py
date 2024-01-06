@@ -218,7 +218,6 @@ def handle_client_request(resource):
         res = handle_error()
     elif resource in FORBIDDEN_LIST:
         res = handle_forbidden()
-    elif
     elif not os.path.exists(WEBROOT + resource):
         data = get_file_data(WEBROOT + DOESNT_EXIST_CONTENT)
         res = handle_not_found(data)
