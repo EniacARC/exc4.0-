@@ -17,7 +17,7 @@ def send(client_socket, data):
     :type client_socket: socket.socket
 
     :param data: the msg to send
-    :type data: str
+    :type data: bytes
 
     :return: if the sending was a success
     :rtype: bool
@@ -26,7 +26,7 @@ def send(client_socket, data):
     len_data = 0
     try:
         while len_data < len(data):
-            len_data += client_socket.send(data[len_data:].encode())
+            len_data += client_socket.send(data[len_data:])
     except socket.error as err:
         logging.error(f"error while sending data: {err}")
         success = False
@@ -44,19 +44,20 @@ def rec_metadata(sock):
      :return: received metadata
      :rtype: str
      """
-    req = ''
+    client_request = ""
     try:
-        while not re.search('\r\n\r\n', req):
+        while not re.search('\r\n\r\n', client_request):
             packet = sock.recv(1).decode()
             if packet == '':
-                req = ''
+                client_request = ''
                 break
-            req += packet
+            client_request += packet
     except socket.error as err:
         logging.error(f"error while recv metadata: {err}")
-        req = ''
+        client_request = ''
     finally:
-        return req
+        print(client_request)
+        return client_request
 
 
 def rec_body(sock, num):

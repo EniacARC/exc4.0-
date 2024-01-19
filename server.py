@@ -6,13 +6,66 @@ Note: The code is written in a simple way, without classes, log files, or
 other utilities, for educational purposes
 Usage: Fill the missing functions and constants
 """
-import logging
+
 import os
 import re
 import socket
 from comm import *
+from serverFunctions import *
 from settings import *
 from http_request import HttpRequest
+import logging
+
+# define log constants
+LOG_FORMAT = '%(levelname)s | %(asctime)s | %(processName)s | %(message)s'
+LOG_LEVEL = logging.DEBUG
+LOG_DIR = 'log'
+LOG_FILE = LOG_DIR + '/loggerServer.log'
+
+# TO DO: set constants
+
+CONTENT_TYPE_DICT = {
+    "html": "text/html;charset=utf-8",
+    "jpg": "image/jpeg",
+    "css": "text/css",
+    "js": "text/javascript; charset=UTF-8",
+    "txt": "text/plain",
+    "ico": "image/x-icon",
+    "gif": "image/jpeg",
+    "png": "image/png"
+}
+
+HTTP_PROTOCOL_NAME = "HTTP/1.1"
+EXCEPTED_METHODS = ["GET", "POST"]
+
+REDIRECTED_CODE = "302 TEMPORARILY MOVED"
+FORBIDDEN_CODE = "403 FORBIDDEN"
+ERROR_CODE = "500 INTERNAL SERVER ERROR"
+BAD_REQUEST_CODE = "400 BAD REQUEST"
+DOESNT_EXIST_CODE = "404 NOT FOUND"
+OK_CODE = "200 OK"
+
+SPECIAL_PATHS = {"/forbidden": FORBIDDEN_CODE, "/error": ERROR_CODE}
+
+REDIRECTED_PATHS = ["/moved"]
+
+SERVER_FUNCTIONS = {"calculate-next": calculate_next.__call__, "/calculate-area": calculate_area.__call__}
+
+REDIRECTED_HEADER = "Location: /"
+CONTENT_TYPE_HEADER = "Content-Type"
+CONTENT_LENGTH_HEADER = "Content-Length"
+
+LINE_SEPERATOR = '\r\n'
+HEADERS_SEPERATOR = ': '
+WEBROOT = "webroot"
+INDEX_URL = "/index.html"
+DOESNT_EXIST_CONTENT = "/404.html"
+QUEUE_SIZE = 10
+MAX_PACKET = 1024
+IP = '0.0.0.0'
+PORT = 80
+SOCKET_TIMEOUT = 2
+
 
 def get_file_data(file_name):
     """
@@ -24,19 +77,19 @@ def get_file_data(file_name):
     :return: The file data in binary.
     :rtype: bytes
     """
-    ext = os.path.splitext(file_name)[1][1:]
     try:
         with open(file_name, 'rb') as file:
             file_data = file.read()
-            return file_data
+            data = file_data
     except FileNotFoundError:
         logging.error(f"File '{file_name}' not found.")
         print(f"File '{file_name}' not found.")
-        return ""
+        data = b''
     except Exception as e:
         logging.error(f"Error reading file '{file_name}': {e}")
         print(f"Error reading file '{file_name}': {e}")
-        return ""
+        data = b''
+    return data
 
 
 def validate_http_request(request):
@@ -44,48 +97,53 @@ def validate_http_request(request):
     Check if request is a valid HTTP request and return TRUE/FALSE and the requested URL.
 
     :param request: The request received from the client.
-    :type request: str
+    :type request: HttpRequest
 
-    :return: the requested resource
-    :rtype: str
-    """
-    r_value = ""
-    lines = re.split('\r\n', request)
-    if len(lines) >= 2:
-        req_line = lines[0].split(" ")
-        if len(req_line) == 3:
-            method, resource, protocol = req_line
-            if protocol == HTTP_PROTOCOL_NAME:
-                if method in EXCEPTED_METHODS:
-                    if resource.startswith("/"):
-                        r_value = resource
-    return r_value
-
-
-def send_data(client_socket, res, data):
-    """
-    :param client_socket: A socket for communication with the client.
-    :type client_socket: socket.socket\
-
-    :param res: the response line + headers
-    :type res: str
-
-    :param data: the response body
-    :type data: bytes
-
-    :return: if the data was sent successfully
+    :return: is valid http request
     :rtype: bool
     """
-    was_sent = False
-    try:
-        sent = 0
-        to_sent = res.encode() + data
-        while sent < len(to_sent):
-            sent += client_socket.send(to_sent[sent:])
-        was_sent = True
-    except socket.error as err:
-        logging.error(f"error while sending to client: {err}")
-    return was_sent
+
+    if request.method in EXCEPTED_METHODS:
+        if request.protocol == HTTP_PROTOCOL_NAME:
+            return True
+    return False
+
+
+def create_header(key, value):
+    return key + ': ' + value + LINE_SEPERATOR
+
+
+def build_response(request):
+    response = HTTP_PROTOCOL_NAME + ' '
+    headers = ""
+    data = b''
+    if not validate_http_request(request) or request.uri == "None":
+        response += BAD_REQUEST_CODE + LINE_SEPERATOR
+    elif request.uri in REDIRECTED_PATHS:
+        response += REDIRECTED_CODE + LINE_SEPERATOR
+        response += REDIRECTED_HEADER
+
+    elif request.uri in SPECIAL_PATHS:
+        response += SPECIAL_PATHS[request.uri] + LINE_SEPERATOR
+
+    else:
+        if not os.path.exists(WEBROOT + request.uri):
+            response += DOESNT_EXIST_CODE + LINE_SEPERATOR
+            data = get_file_data(WEBROOT + DOESNT_EXIST_CONTENT)
+        else:
+            if request.uri == '/':
+                file_path = WEBROOT + INDEX_URL
+            else:
+                file_path = WEBROOT + request.uri
+            response += OK_CODE + LINE_SEPERATOR
+            print(response)
+            data = get_file_data(file_path)
+
+            file_extension = os.path.splitext(file_path)[1][1:]
+            headers += create_header(CONTENT_TYPE_HEADER, CONTENT_TYPE_DICT[file_extension])
+            headers += create_header(CONTENT_LENGTH_HEADER, str(len(data)))
+
+    return response, headers, data
 
 
 def handle_client(client_socket):
@@ -98,11 +156,16 @@ def handle_client(client_socket):
     print('Client connected')
     while True:
         request_str = rec_metadata(client_socket)
-        request = HttpRequest(request_str)
-        print(request.method)
-        print(request.uri)
-        print(request.protocol)
-        print(request.query)
+        if request_str != '':
+            request = HttpRequest(request_str)
+            response_line, headers, data = build_response(request)
+            if BAD_REQUEST_CODE in response_line:
+                break
+            response = response_line.encode() + (headers + LINE_SEPERATOR).encode() + data
+            if not send(client_socket, response):
+                break
+        else:
+            break
     print('Closing connection')
 
 
@@ -135,8 +198,9 @@ def main():
 
 
 if __name__ == "__main__":
-
-
-
     # Call the main handler function
+    # make sure we have a logging directory and configure the logging
+    if not os.path.isdir(LOG_DIR):
+        os.makedirs(LOG_DIR)
+    logging.basicConfig(format=LOG_FORMAT, filename=LOG_FILE, level=LOG_LEVEL)
     main()
