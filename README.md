@@ -1,1 +1,1 @@
-an http server that can handle query string for school project
+an http server that can handle query string for a school project
