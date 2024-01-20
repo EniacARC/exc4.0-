@@ -1,3 +1,9 @@
+"""
+Author: Yonathan Chapal
+Program name: http_request
+Description: a class for parsing and storing http requests
+Date: 20/1/24
+"""
 import re
 from settings import *
 

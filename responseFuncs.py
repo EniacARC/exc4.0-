@@ -1,3 +1,9 @@
+"""
+Author: Yonathan Chapal
+Program name: responseFuncs.py
+Description: all the functions needed for the res_build function in server.py
+Date: 20/1/24
+"""
 from settings import *
 import os
 

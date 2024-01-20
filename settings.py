@@ -1,3 +1,9 @@
+"""
+Author: Yonathan Chapal
+Program name: settings.py
+Description: all the constants
+Date: 20/1/24
+"""
 import logging
 # define log constants
 LOG_FORMAT = '%(levelname)s | %(asctime)s | %(processName)s | %(message)s'

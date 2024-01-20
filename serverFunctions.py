@@ -1,8 +1,8 @@
 """
 Author: Yonathan Chapal
-Program name: comms.py
-Description: the communication functions
-Date: 12/1/24
+Program name: serverFunctions.py
+Description: the special functions of the server
+Date: 20/1/24
 """
 import socket
 from comm import *

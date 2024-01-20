@@ -2,7 +2,7 @@
 Author: Yonathan Chapal
 Program name: comms.py
 Description: the communication functions
-Date: 12/1/24
+Date: 20/1/24
 """
 import re
 import socket

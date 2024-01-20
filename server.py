@@ -1,10 +1,8 @@
 """
-HTTP Server Shell
-Author: Barak Gonen and Nir Dweck
-Purpose: Provide a basis for Ex. 4
-Note: The code is written in a simple way, without classes, log files, or
-other utilities, for educational purposes
-Usage: Fill the missing functions and constants
+Author: Yonathan Chapal
+Program name: server.py
+Description: the server side of comm
+Date: 20/1/24
 """
 
 import os
