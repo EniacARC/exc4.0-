@@ -56,7 +56,6 @@ def rec_metadata(sock):
         logging.error(f"error while recv metadata: {err}")
         client_request = ''
     finally:
-        print(client_request)
         return client_request
 
 
@@ -71,19 +70,20 @@ def rec_body(sock, num):
      :type num: int
 
      :return: received message
-     :rtype: str
+     :rtype: bytes
      """
-    bod = ''
+    bod = b''
+
     try:
         while len(bod) < num:
-            chunk = sock.recv(num - len(bod)).decode()
-            if chunk == '':
-                bod = ''
+            chunk = sock.recv(num - len(bod))
+            if chunk == b'':
+                bod = b''
                 break
             bod += chunk
     except socket.error as err:
         logging.error(f"error while recv body: {err}")
-        bod = ''
+        bod = b''
     finally:
         return bod
 

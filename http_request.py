@@ -1,14 +1,6 @@
 import re
 from settings import *
 
-DEFAULT_VALUE = "None"
-LINE_SEPERATOR = '\r\n'
-PATTERN = r'^[A-Z]+\s/.*\sHTTP/\d\.\d(.+: .+)*\r\n'
-HEADERS_SEPERATOR = ': '
-QUERY_SEPERATOR = '?'
-PARAMS_SEPERATOR = '&'
-PARAM_SEPERATOR = '='
-
 
 class HttpRequest:
     def __init__(self, request):
@@ -24,14 +16,27 @@ class HttpRequest:
     @staticmethod
     def can_parse(request):
         """
-        checks if string is in a valid http format (not validity for the application).
-        :param request:
-        :return:
+        Check if string is in a valid HTTP format (not checking for application-specific validity).
+
+        :param request: The HTTP request string.
+        :type request: str
+
+        :return: True if the string is in a valid HTTP format, False otherwise.
+        :rtype: bool
         """
         return bool(re.match(PATTERN, request))
 
     @staticmethod
     def parse_request_line(req_line):
+        """
+        Parse the request line into method, URI, query parameters, and protocol.
+
+        :param req_line: The request line.
+        :type req_line: str
+
+        :return: Tuple containing method, URI, query parameters, and protocol.
+        :rtype: tuple
+        """
         method, resource, protocol = req_line.split(" ")
         query = {}
         uri = resource
@@ -48,6 +53,15 @@ class HttpRequest:
 
     @staticmethod
     def parse_headers(headers_str):
+        """
+        Parse headers string into a dictionary.
+
+        :param headers_str: The headers string.
+        :type headers_str: list[str]
+
+        :return: Dictionary containing headers.
+        :rtype: dict
+        """
         headers = {}
         for element in headers_str:
             key, value = element.split(HEADERS_SEPERATOR)
@@ -55,6 +69,14 @@ class HttpRequest:
         return headers
 
     def parse_request(self, request):
+        """
+        Parse the entire HTTP request.
+
+        :param request: The HTTP request string.
+        :type request: str
+
+        :return: None
+        """
         lines = re.split(LINE_SEPERATOR, request)
         self.method, self.uri, self.query, self.protocol = self.parse_request_line(lines[0])
         self.headers = self.parse_headers(lines[1:len(lines) - 2])

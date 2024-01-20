@@ -8,88 +8,15 @@ Usage: Fill the missing functions and constants
 """
 
 import os
-import re
 import socket
 from comm import *
-from serverFunctions import *
 from settings import *
 from http_request import HttpRequest
-import logging
+from serverFunctions import *
+from responseFuncs import *
 
-# define log constants
-LOG_FORMAT = '%(levelname)s | %(asctime)s | %(processName)s | %(message)s'
-LOG_LEVEL = logging.DEBUG
-LOG_DIR = 'log'
-LOG_FILE = LOG_DIR + '/loggerServer.log'
-
-# TO DO: set constants
-
-CONTENT_TYPE_DICT = {
-    "html": "text/html;charset=utf-8",
-    "jpg": "image/jpeg",
-    "css": "text/css",
-    "js": "text/javascript; charset=UTF-8",
-    "txt": "text/plain",
-    "ico": "image/x-icon",
-    "gif": "image/jpeg",
-    "png": "image/png"
-}
-
-HTTP_PROTOCOL_NAME = "HTTP/1.1"
-EXCEPTED_METHODS = ["GET", "POST"]
-
-REDIRECTED_CODE = "302 TEMPORARILY MOVED"
-FORBIDDEN_CODE = "403 FORBIDDEN"
-ERROR_CODE = "500 INTERNAL SERVER ERROR"
-BAD_REQUEST_CODE = "400 BAD REQUEST"
-DOESNT_EXIST_CODE = "404 NOT FOUND"
-OK_CODE = "200 OK"
-
-SPECIAL_PATHS = {"/forbidden": FORBIDDEN_CODE, "/error": ERROR_CODE}
-
-REDIRECTED_PATHS = ["/moved"]
-
-SERVER_FUNCTIONS = {"calculate-next": calculate_next.__call__, "/calculate-area": calculate_area.__call__}
-
-REDIRECTED_HEADER = "Location: /"
-CONTENT_TYPE_HEADER = "Content-Type"
-CONTENT_LENGTH_HEADER = "Content-Length"
-
-LINE_SEPERATOR = '\r\n'
-HEADERS_SEPERATOR = ': '
-WEBROOT = "webroot"
-INDEX_URL = "/index.html"
-DOESNT_EXIST_CONTENT = "/404.html"
-QUEUE_SIZE = 10
-MAX_PACKET = 1024
-IP = '0.0.0.0'
-PORT = 80
-SOCKET_TIMEOUT = 2
-
-
-def get_file_data(file_name):
-    """
-    Get data from file
-
-    :param file_name: Name of the file.
-    :type file_name: str
-
-    :return: The file data in binary.
-    :rtype: bytes
-    """
-    try:
-        with open(file_name, 'rb') as file:
-            file_data = file.read()
-            data = file_data
-    except FileNotFoundError:
-        logging.error(f"File '{file_name}' not found.")
-        print(f"File '{file_name}' not found.")
-        data = b''
-    except Exception as e:
-        logging.error(f"Error reading file '{file_name}': {e}")
-        print(f"Error reading file '{file_name}': {e}")
-        data = b''
-    return data
+SERVER_FUNCTIONS = {"/calculate-next": calculate_next.__call__, "/calculate-area": calculate_area.__call__,
+                    "/upload": upload_file.__call__, "/image": get_image.__call__}
 
 
 def validate_http_request(request):
@@ -109,61 +36,65 @@ def validate_http_request(request):
     return False
 
 
-def create_header(key, value):
-    return key + ': ' + value + LINE_SEPERATOR
+def build_res(code, body, body_type):
+    """
+    Build an HTTP response.
 
+    :param code: The HTTP status code.
+    :type code: int
 
-def build_response(request):
-    response = HTTP_PROTOCOL_NAME + ' '
+    :param body: The response body.
+    :type body: bytes
+
+    :param body_type: The content type of the response body.
+    :type body_type: str
+
+    :return: The constructed HTTP response.
+    :rtype: bytes
+    """
+    response_line = HTTP_PROTOCOL_NAME + ' ' + STATUS_CONVERT[code] + LINE_SEPERATOR
     headers = ""
-    data = b''
-    if not validate_http_request(request) or request.uri == "None":
-        response += BAD_REQUEST_CODE + LINE_SEPERATOR
-    elif request.uri in REDIRECTED_PATHS:
-        response += REDIRECTED_CODE + LINE_SEPERATOR
-        response += REDIRECTED_HEADER
+    if code == REDIRECTED_CODE:
+        headers += REDIRECTED_HEADER
+    if body != b'':
+        headers += CONTENT_TYPE_HEADER + ': ' + CONTENT_TYPE_DICT[body_type] + LINE_SEPERATOR
+        headers += CONTENT_LENGTH_HEADER + ': ' + str(len(body)) + LINE_SEPERATOR
+    headers += LINE_SEPERATOR
 
-    elif request.uri in SPECIAL_PATHS:
-        response += SPECIAL_PATHS[request.uri] + LINE_SEPERATOR
-
-    else:
-        if not os.path.exists(WEBROOT + request.uri):
-            response += DOESNT_EXIST_CODE + LINE_SEPERATOR
-            data = get_file_data(WEBROOT + DOESNT_EXIST_CONTENT)
-        else:
-            if request.uri == '/':
-                file_path = WEBROOT + INDEX_URL
-            else:
-                file_path = WEBROOT + request.uri
-            response += OK_CODE + LINE_SEPERATOR
-            print(response)
-            data = get_file_data(file_path)
-
-            file_extension = os.path.splitext(file_path)[1][1:]
-            headers += create_header(CONTENT_TYPE_HEADER, CONTENT_TYPE_DICT[file_extension])
-            headers += create_header(CONTENT_LENGTH_HEADER, str(len(data)))
-
-    return response, headers, data
+    return response_line.encode() + headers.encode() + body
 
 
 def handle_client(client_socket):
     """
-    Handles client requests: verifies client's requests are legal HTTP, calls
-    function to handle the requests
-    :param client_socket: the socket for the communication with the client
-    :return: None
-    """
+       Handles client requests: verifies client's requests are legal HTTP, calls
+       function to handle the requests.
+
+       :param client_socket: The socket for communication with the client.
+       :type client_socket: socket
+
+       :return: None
+       """
     print('Client connected')
     while True:
         request_str = rec_metadata(client_socket)
         if request_str != '':
             request = HttpRequest(request_str)
-            response_line, headers, data = build_response(request)
-            if BAD_REQUEST_CODE in response_line:
+            code = BAD_REQUEST_CODE
+            body = b''
+            body_type = ''
+            if validate_http_request(request):
+                if request.uri in SERVER_FUNCTIONS:
+                    code, body, body_type = SERVER_FUNCTIONS[request.uri](client_socket, request)
+                else:
+                    if request.method == "GET":
+                        code = get_get_request_code(request.uri)
+                        body = get_body(request.uri, code)
+                        body_type = get_file_ext(code, request.uri)
+
+            response = build_res(code, body, body_type)
+            if not send(client_socket, response) or code == BAD_REQUEST_CODE:
                 break
-            response = response_line.encode() + (headers + LINE_SEPERATOR).encode() + data
-            if not send(client_socket, response):
-                break
+
         else:
             break
     print('Closing connection')
@@ -171,7 +102,8 @@ def handle_client(client_socket):
 
 def main():
     """
-    The mian functions. runs the server code.
+    The main functions. Runs the server code.
+
     return: none
     """
     # Open a socket and loop forever while waiting for clients
