@@ -4,7 +4,7 @@ Program name: comms.py
 Description: the communication functions
 Date: 12/1/24
 """
-from http_request import HttpRequest
+import socket
 from comm import *
 from responseFuncs import *
 from http_request import HttpRequest
@@ -14,8 +14,8 @@ def calculate_next(sock, request):
     """
     Calculate the next number based on the provided request.
 
-    :param sock: The socket for communication.
-    :type sock: socket
+    :param sock: used for symmetry
+    :type sock: socket.socket
     :param request: The HTTP request object.
     :type request: HttpRequest
 
@@ -34,8 +34,8 @@ def calculate_area(sock, request):
     """
     Calculate the area of a triangle based on the provided request.
 
-    :param sock: The socket for communication.
-    :type sock: socket
+    :param sock: used for symmetry
+    :type sock: socket.socket
     :param request: The HTTP request object.
     :type request: HttpRequest
 
@@ -45,7 +45,7 @@ def calculate_area(sock, request):
     code = 400
     area = ""
     if request.method == "GET" and request.query["height"].isnumeric() and request.query["width"].isnumeric():
-        area = str(int(request.query["height"]) * int(request.query["height"]) * 0.5)
+        area = str(int(request.query["height"]) * int(request.query["width"]) * 0.5)
         code = 200
     return code, area.encode(), "txt"
 
@@ -55,7 +55,7 @@ def upload_file(sock, request):
     Upload a file based on the provided request.
 
     :param sock: The socket for communication.
-    :type sock: socket
+    :type sock: socket.socket
     :param request: The HTTP request object.
     :type request: HttpRequest
 
@@ -86,8 +86,8 @@ def get_image(sock, request):
     """
     Get an image based on the provided request.
 
-    :param sock: The socket for communication.
-    :type sock: socket
+    :param sock: used for symmetry
+    :type sock: socket.socket
     :param request: The HTTP request object.
     :type request: HttpRequest
 
@@ -96,10 +96,11 @@ def get_image(sock, request):
     """
     code = 500
     body = b''
+    ext = ""
     if request.method == "GET":
         image_path = UPLOAD_DIR + '/' + request.query["image-name"]
         uri = image_path[len(WEBROOT):]
         code = get_get_request_code(uri)
         body = get_body(uri, code)
-
-        return code, body, get_file_ext(code, image_path)
+        ext = get_file_ext(code, image_path)
+    return code, body, ext

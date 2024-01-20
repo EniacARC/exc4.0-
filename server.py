@@ -134,5 +134,50 @@ if __name__ == "__main__":
     # make sure we have a logging directory and configure the logging
     if not os.path.isdir(LOG_DIR):
         os.makedirs(LOG_DIR)
+
+    valid_request = "GET /index.html HTTP/1.1\r\n\r\n"
+    valid_http_request = HttpRequest(valid_request)
+    assert validate_http_request(valid_http_request)
+
+    invalid_request = "INVALID_REQUEST\r\n\r\n"
+    invalid_http_request = HttpRequest(invalid_request)
+    assert not validate_http_request(invalid_http_request)
+
+    response = build_res(200, b'OK', 'txt')
+    expected_response = b'HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 2\r\n\r\nOK'
+    assert response == expected_response
+
+    request_str = "GET /calculate-next?num=5 HTTP/1.1\r\n\r\n"
+    request = HttpRequest(request_str)
+    code, body, content_type = calculate_next(None, request)
+    assert code == 200
+    assert body == b'6'
+    assert content_type == 'txt'
+
+    request_str = "GET /calculate-next?num=gh HTTP/1.1\r\n\r\n"
+    request = HttpRequest(request_str)
+    code, body, content_type = calculate_next(None, request)
+    assert code == 400
+    assert body == b''
+
+    request_str = "GET /calculate-area?height=5&width=3 HTTP/1.1\r\n\r\n"
+    request = HttpRequest(request_str)
+    code, body, content_type = calculate_area(None, request)
+    assert code == 200
+    assert body == b'7.5'
+    assert content_type == 'txt'
+
+    request_str = "GET /calculate-area?height=awda&width=3 HTTP/1.1\r\n\r\n"
+    request = HttpRequest(request_str)
+    code, body, content_type = calculate_area(None, request)
+    assert code == 400
+    assert body == b''
+
+    request_str = "GET /image?image-name=orch.jpg HTTP/1.1\r\n\r\n"
+    request = HttpRequest(request_str)
+    code, body, content_type = get_image(None, request)
+    assert code == 200
+    assert content_type == 'jpg'
+
     logging.basicConfig(format=LOG_FORMAT, filename=LOG_FILE, level=LOG_LEVEL)
     main()
