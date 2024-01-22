@@ -65,7 +65,7 @@ def upload_file(sock, request):
     code = 500
     body = ""
     try:
-        if request.method == "POST":
+        if request.method == "POST" and request.headers["Content-Type"] in CONTENT_TYPE_DICT.values():
             file_data = rec_body(sock, int(request.headers["Content-Length"]))
             print(file_data)
             if file_data != '':
